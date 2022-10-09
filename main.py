@@ -1,125 +1,145 @@
-import pyttsx3
 import speech_recognition as sr
-import datetime
-import wikipedia
-import webbrowser
-import os
 import random
-import smtplib
+import pyttsx3
+import datetime
+import webbrowser
+import pywhatkit
+import serial
 
+# Declare robot name (Wake-Up word)
+robot_name = 'jarvis'
+
+# random words list
+hi_words = ['hi', 'hello', 'hy bhai']
+bye_words = ['bye', 'tata']
+r_u_there = ['are you there', 'you there']
+
+# initilize things
 engine = pyttsx3.init('sapi5')
 voices = engine.getProperty('voices')
-# print(voices[1].id)
 engine.setProperty('voice', voices[0].id)
+listener = sr.Recognizer()
 
-def speak(audio):
-    engine.say(audio)
-    engine.runAndWait()
+# connect with NiNi motor driver board over serial communication
+try:
+    port = serial.Serial("COM4", 9600)
+    print("Phycial body, connected.")
+except:
+     print("Unable to connect to my physical body")
 
-def wishMe():
-    hour = int(datetime.datetime.now().hour)
-    if hour>=0 and hour<12:
-        speak("agent spidy 1 21 reporting sir")
 
-    elif hour>=12 and hour<=18:
-        speak("agent spidy 1 21 reporting sir!")
+def listen():
+	""" listen to what user says"""
+	try:
+		with sr.Microphone() as source:
+			print("Talk>>")
+			listener.pause_threshold = 1
+			voice = listener.listen(source)
+			command = listener.recognize_google(voice).lower()
+			# all words lowercase- so that we can process easily
+			command = command.lower()
+			print(command)
 
-    else:
-        speak("agent spidy 1 21 reporting sir")
-    speak("Hi I am agent spidy 1 21. I am created by Harshit and Rounak. I am a spider robot")
-def takeCommand():
-    # it takes microphone as input
+			# look for wake up word in the beginning
+			if (command.split(' ')[0] == robot_name):
+				# if wake up word found....
+				print("[wake-up word found]")
+				process(command)
+	except:
+		pass
 
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        print("Listening...")
-        r.pause_threshold = 1
-        audio = r.listen(source)
+def process(words):
+	""" process what user says and take actions """
+	print(words) # check if it received any command
 
-    try:
-        print("Recognizing...")
-        query = r.recognize_google(audio, language='en-in')
-        print(f"User said: {query}\n")
+	# break words in
+	word_list = words.split(' ')[1:]   # split by space and ignore the wake-up word
 
-    except Exception as e:
-        # print(e)
-        print("Say that again please...")
-        return "None"
-    return query
+	if (len(word_list)==1):
+		if (word_list[0] == robot_name):
+			talk("How Can I help you?")
+			return
 
-def sendEmail(to, content):
-    server = smtplib.SMTP('smtp.gmail.com', 587)
-    server.ehlo()
-    server.starttls()
-    server.login('kumarisuchi569@gmail.com', 'Suchi@145')
-    server.sendmail('kvinod03896@gmail.com', to, content)
-    server.close()
+	if word_list[0] == 'play':
+		"""if command for playing things, play from youtube"""
+		talk("Okay boss, playing")
+		extension = ' '.join(word_list[1:])                    # search without the command word
+		port.write(b'V')
+		pywhatkit.playonyt(extension)
+		port.write(b'v')
+		return
 
-if __name__ == "__main__":
-    wishMe()
-    while True:
-        query = takeCommand().lower()
+	elif word_list[0] == 'search':
+		"""if command for google search"""
+		port.write(b'V')
+		talk("Okay boss, searching")
+		port.write(b'v')
+		extension = ' '.join(word_list[1:])
+		pywhatkit.search(extension)
+		return
 
-        # Logic for executing tasks based on query
-        if 'wikipedia' in query:
-            speak('Searching Wikipedia...')
-            query = query.replace("wikipedia", '')
-            results = wikipedia.summary(query, sentences=1)
-            speak("According to Wikipedia")
-            print(results)
-            speak(results)
+	if (word_list[0] == 'get') and (word_list[1] == 'info'):
+		"""if command for getting info"""
+		port.write(b'V')
+		talk("Okay, I am right on it")
+		port.write(b'v')
+		extension = ' '.join(word_list[2:])                    # search without the command words
+		inf = pywhatkit.info(extension)
+		talk(inf)                                              # read from result
+		return
 
-        elif 'open youtube' in query:
-            webbrowser.open("youtube.com")
+	elif word_list[0] == 'open':
+		"""if command for opening URLs"""
+		port.write(b'V')
+		talk("Opening, sir")
+		url = f"http://{''.join(word_list[1:])}"   # make the URL
+		webbrowser.open(url)
+		return
+	elif word_list[0] == 'handshake':
+		port.write(b'v')
 
-        elif 'open google' in query:
-            webbrowser.open("google.com")
+	elif word_list[0] == 'go forward':
+		port.write(b'F')
 
-        elif 'open stackoverflow' in query:
-            webbrowser.open("stackoverflow.com")
+	elif word_list[0] == 'go back':
+		port.write(b'B')
 
-        elif 'play music' in query:
-            music_dir = 'C:\\Users\\kumar\\Music\\Playlists'
-            songs = os.listdir(music_dir)
-            print(songs)
-            os.startfile(os.path.join(music_dir, songs[random.randint(1, 13)]))
+	elif word_list[0] == 'turn left':
+		port.write(b'L')
 
-        elif 'the time' in query:
-            strTime = datetime.datetime.now().strftime("%H:%M:%S")
-            speak(f"Sir, The time is {strTime}")
+	elif word_list[0] == 'turn right':
+		port.write(b'R')
 
-        elif 'open code' in query:
-            codePath = "C:\\Program Files\\JetBrains\\PyCharm Community Edition 2021.1.2\\bin\\pycharm64.exe"
-            os.startfile(codePath)
+	elif word_list[0] == 'dance':
+		port.write(b'U')
 
-        elif 'explain yourself' in query:
-            speak("I am a spider robot which can walk, dance, or controlled by a smart phone. I have 4 components.")
-            speak("First component is arduino nano, The Arduino Nano is one type of microcontroller board")
-            speak("and it is designed by Arduino.cc")
-            speak("Arduino board designs use a variety of microprocessors and controllers.")
-            speak("The microcontrollers can be programmed using the C and C++ programming languages")
-            speak("using a standard API which is also known as the Arduino language")
-            speak("The second thing was servo motor, the servo motor is a a motor that can be controlled by arduino.")
-            speak("A typical servo consists of a small electric motor driving a train of reduction gears.")
-            speak("A potentiometer is connected to the output shaft.")
-            speak("Some simple electronics provide a closed-loop servomechanism.")
-            speak("the third component is a bluetooth module, HC-05 Bluetooth Module is a low-cost,")
-            speak("easy-to-operate and small-sized module used for wireless communication in the Bluetooth spectrum.")
-            speak("It supports Serial Port Protocol (SPP),")
-            speak("which helps in sending/receiving data to/from a microcontroller (i.e. Arduino UNO).")
-            speak("and the last thing is my structure, my structure is inspired by spider and is made of sun board.")
-            speak("I can be used as a pet, transfer objects, search operation etc.")
-            speak("I have also negative results that any thief can misuse me")
-            speak("ok thank you. bye bye")
+	elif word_list[0] == 'stand':
+		port.write(b'X')
 
-        elif 'email to rounak' in query:
-            try:
-                speak("What should I say")
-                content = takeCommand()
-                to = "suchiyourEmail@gmail.com"
-                sendEmail(to, content)
-                speak("Email has been sent!")
-            except Exception as e:
-                print(e)
-                speak("Sorry my friend hp 35 bhai. I am not able to send this email")
+	elif word_list[0] == 'sit':
+		port.write(b'x')
 
+	elif word_list[0] == 'hand wave':
+		port.write(b'W')
+
+    # now check for matches
+	for word in word_list:
+		if word in hi_words:
+			""" if user says hi/hello greet him accordingly"""
+			port.write(b'V')               # send command to wave hand
+			talk(random.choice(hi_words))
+
+		elif word in bye_words:
+			""" if user says bye etc"""
+			port.write(b'w')
+			talk(random.choice(bye_words))
+
+
+def talk(sentence):
+	""" talk / respond to the user """
+	engine.say(sentence)
+	engine.runAndWait()
+
+# run the app
+while True:
+    listen()  # runs listen one time
